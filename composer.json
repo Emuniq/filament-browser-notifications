@@ -1,0 +1,59 @@
+{
+    "name": "emuniq/filament-browser-notifications",
+    "description": "Zero-config browser push notifications for Filament. Piggybacks on database notifications — every sendToDatabase() automatically triggers a Web Push via VAPID.",
+    "license": "MIT",
+    "keywords": [
+        "filament",
+        "laravel",
+        "web-push",
+        "notifications",
+        "vapid",
+        "service-worker",
+        "browser-notifications",
+        "push-notifications"
+    ],
+    "authors": [
+        {
+            "name": "Emuniq",
+            "homepage": "https://github.com/Emuniq"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/Emuniq/filament-browser-notifications/issues",
+        "source": "https://github.com/Emuniq/filament-browser-notifications"
+    },
+    "autoload": {
+        "psr-4": {
+            "Emuniq\\FilamentBrowserNotifications\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Emuniq\\FilamentBrowserNotifications\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Emuniq\\FilamentBrowserNotifications\\BrowserNotificationsServiceProvider"
+            ]
+        }
+    },
+    "require": {
+        "php": "^8.1",
+        "filament/filament": "^3.0|^4.0|^5.0",
+        "laravel-notification-channels/webpush": "^8.0|^9.0|^10.0|^11.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^9.0|^10.0",
+        "pestphp/pest": "^2.0|^3.0",
+        "pestphp/pest-plugin-laravel": "^2.0|^3.0"
+    },
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
