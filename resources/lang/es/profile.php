@@ -10,6 +10,8 @@ return [
     'enable' => 'Activar notificaciones',
     'disable' => 'Desactivar en este navegador',
     'devices_registered' => 'dispositivos registrados en tu cuenta',
-    'denied_help' => 'Para activarlas, haz clic en el ícono de candado en la barra de direcciones y permite las notificaciones.',
-    'retry' => 'Solicitar permiso',
+    'denied_help' => 'Para activarlas, haz clic en el ícono de candado en la barra de direcciones, permite las notificaciones y recarga la página.',
+    'reload' => 'Ya las permití, recargar',
+    'status_ios' => 'Requiere agregar a pantalla de inicio',
+    'ios_help' => 'En Safari, toca el botón Compartir (el cuadrado con flecha) y selecciona "Agregar a pantalla de inicio". Después abre la app desde ahí para activar notificaciones.',
 ];

@@ -43,12 +43,26 @@
 document.addEventListener('alpine:init', () => {
     Alpine.data('browserNotifications', () => ({
         showPrompt: false,
+        _swRegistration: null,
+        _vapidKey: null,
 
-        init() {
+        async init() {
+            if (this.isIosWithoutPwa()) return;
             if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
             if (this.isOptedOut()) return;
+
+            // Pre-register SW on page load so click handler has minimal async
+            try {
+                this._swRegistration = await navigator.serviceWorker.register('/sw.js');
+                await navigator.serviceWorker.ready;
+                this._vapidKey = this.parseVapidKey();
+            } catch (e) {}
+
             if (Notification.permission === 'granted') {
-                this.ensureSubscription();
+                // iOS requires user gesture for pushManager.subscribe — skip auto-resubscribe
+                if (!this.isIos()) {
+                    this.ensureSubscription();
+                }
                 return;
             }
             if (Notification.permission === 'denied') return;
@@ -68,10 +82,38 @@ document.addEventListener('alpine:init', () => {
             try { localStorage.removeItem('bn_opted_out'); } catch (e) {}
 
             try {
-                const permission = await Notification.requestPermission();
-                if (permission !== 'granted') return;
+                var vapidMeta = document.querySelector('meta[name="vapid-public-key"]');
+                if (!vapidMeta) return;
 
-                await this.ensureSubscription();
+                if (this.isIos()) {
+                    var subscription = await this._swRegistration.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: vapidMeta.content,
+                    });
+                } else {
+                    var permission = await Notification.requestPermission();
+                    if (permission !== 'granted') return;
+
+                    var reg = await navigator.serviceWorker.ready;
+                    var subscription = await reg.pushManager.getSubscription();
+                    if (!subscription) {
+                        subscription = await reg.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: vapidMeta.content,
+                        });
+                    }
+                }
+
+                if (subscription) {
+                    await fetch('/webpush/subscribe', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        },
+                        body: JSON.stringify(subscription),
+                    });
+                }
             } catch (e) {
                 console.error('[BrowserNotifications] Subscribe error:', e);
             }
@@ -79,32 +121,36 @@ document.addEventListener('alpine:init', () => {
 
         async ensureSubscription() {
             try {
-                const registration = await navigator.serviceWorker.register('/sw.js');
-                await navigator.serviceWorker.ready;
-
-                let subscription = await registration.pushManager.getSubscription();
-
-                if (!subscription) {
-                    const vapidKey = document.querySelector('meta[name="vapid-public-key"]');
-                    if (!vapidKey) return;
-
-                    subscription = await registration.pushManager.subscribe({
+                if (!this._swRegistration) return;
+                var subscription = await this._swRegistration.pushManager.getSubscription();
+                if (!subscription && this._vapidKey) {
+                    subscription = await this._swRegistration.pushManager.subscribe({
                         userVisibleOnly: true,
-                        applicationServerKey: this.urlBase64ToUint8Array(vapidKey.content),
+                        applicationServerKey: this._vapidKey,
                     });
                 }
+                if (subscription) {
+                    await fetch('/webpush/subscribe', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        },
+                        body: JSON.stringify(subscription),
+                    });
+                }
+            } catch (e) {}
+        },
 
-                await fetch('/webpush/subscribe', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                    },
-                    body: JSON.stringify(subscription),
-                });
-            } catch (e) {
-                console.error('[BrowserNotifications] Registration error:', e);
-            }
+        parseVapidKey() {
+            var meta = document.querySelector('meta[name="vapid-public-key"]');
+            if (!meta) return null;
+            var padding = '='.repeat((4 - meta.content.length % 4) % 4);
+            var base64 = (meta.content + padding).replace(/-/g, '+').replace(/_/g, '/');
+            var rawData = window.atob(base64);
+            var arr = new Uint8Array(rawData.length);
+            for (var i = 0; i < rawData.length; ++i) arr[i] = rawData.charCodeAt(i);
+            return arr;
         },
 
         dismiss() {
@@ -129,15 +175,14 @@ document.addEventListener('alpine:init', () => {
             try { return localStorage.getItem('bn_opted_out') === '1'; } catch (e) { return false; }
         },
 
-        urlBase64ToUint8Array(base64String) {
-            const padding = '='.repeat((4 - base64String.length % 4) % 4);
-            const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-            const rawData = window.atob(base64);
-            const outputArray = new Uint8Array(rawData.length);
-            for (let i = 0; i < rawData.length; ++i) {
-                outputArray[i] = rawData.charCodeAt(i);
-            }
-            return outputArray;
+        isIos() {
+            var ua = navigator.userAgent;
+            return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        },
+
+        isIosWithoutPwa() {
+            if (!this.isIos()) return false;
+            return !(window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches);
         },
     }));
 });

@@ -101,6 +101,10 @@ class BrowserNotificationsPlugin implements Plugin
             return '';
         }
 
-        return '<meta name="vapid-public-key" content="' . e($key) . '">';
+        return '<meta name="vapid-public-key" content="' . e($key) . '">'
+            . "\n" . '<link rel="manifest" href="/manifest.json">'
+            . "\n" . '<meta name="apple-mobile-web-app-capable" content="yes">'
+            . "\n" . '<meta name="apple-mobile-web-app-status-bar-style" content="default">'
+            . "\n" . '<meta name="apple-mobile-web-app-title" content="' . e(config('app.name', 'App')) . '">';
     }
 }

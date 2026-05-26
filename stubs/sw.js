@@ -1,16 +1,27 @@
 self.addEventListener('push', function (event) {
-    if (!event.data) return;
-
-    var data = event.data.json();
-    var title = data.title || 'Notification';
+    var title = 'Notification';
     var options = {
-        body: data.body || '',
-        icon: data.icon || '/favicon.ico',
-        badge: data.badge || '/favicon.ico',
-        data: data.data || {},
-        tag: data.tag || 'default',
+        body: '',
+        icon: '/favicon.ico',
+        badge: '/favicon.ico',
+        data: {},
+        tag: 'default',
         renotify: true,
     };
+
+    if (event.data) {
+        try {
+            var data = event.data.json();
+            title = data.title || title;
+            options.body = data.body || '';
+            options.icon = data.icon || options.icon;
+            options.badge = data.badge || options.badge;
+            options.data = data.data || {};
+            options.tag = data.tag || options.tag;
+        } catch (e) {
+            title = event.data.text() || title;
+        }
+    }
 
     event.waitUntil(
         self.registration.showNotification(title, options)

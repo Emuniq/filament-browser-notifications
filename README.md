@@ -7,8 +7,6 @@
 
 <img src="art/banner.png" alt="Banner" class="filament-hidden" />
 
-<div class="filament-hidden">
-
 ## Screenshots
 
 **Subscription prompt** — appears after a configurable delay, asking the user to enable push notifications.
@@ -22,8 +20,6 @@
 **Profile section (active)** — shows subscription status, device count, and a button to disable.
 
 ![Profile section — active](art/profile-active.png)
-
-</div>
 
 ## Installation
 
@@ -86,6 +82,7 @@ Your existing code (unchanged)
 - Service worker served from route (no asset publishing)
 - Panel favicon used as push notification icon
 - Dead subscription cleanup (410 Gone auto-deleted by webpush package)
+- iOS PWA support — serves `manifest.json`, detects iOS Safari, guides users to Add to Home Screen
 - i18n ready — ships with English and Spanish
 - Filament 3, 4, and 5 compatible
 
@@ -95,6 +92,15 @@ Your existing code (unchanged)
 - Laravel 10+ / Filament 3+
 - HTTPS (required by the Web Push API)
 - A queue worker (Horizon, `queue:work`, etc.)
+
+## iOS Support
+
+Push notifications on iOS require the app to be added to the Home Screen as a PWA. The plugin handles this automatically:
+
+- Serves a `manifest.json` with `display: standalone` and icons from your panel favicon
+- Injects Apple PWA meta tags
+- Detects iOS Safari without PWA and shows "Add to Home Screen" instructions in the profile section
+- Once added to Home Screen, the standard VAPID push flow works normally
 
 ## Testing your setup
 

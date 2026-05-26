@@ -10,6 +10,8 @@ return [
     'enable' => 'Enable notifications',
     'disable' => 'Disable on this browser',
     'devices_registered' => 'devices registered to your account',
-    'denied_help' => 'To enable, click the lock icon in the address bar and allow notifications.',
-    'retry' => 'Request permission',
+    'denied_help' => 'To enable, click the lock icon in the address bar, allow notifications, and reload the page.',
+    'reload' => 'Already allowed, reload',
+    'status_ios' => 'Requires Add to Home Screen',
+    'ios_help' => 'In Safari, tap the Share button (square with arrow) and select "Add to Home Screen". Then open the app from there to enable notifications.',
 ];
