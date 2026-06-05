@@ -4,6 +4,7 @@ namespace Emuniq\FilamentBrowserNotifications;
 
 use Filament\Contracts\Plugin;
 use Filament\Panel;
+use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
 
 class BrowserNotificationsPlugin implements Plugin
@@ -63,29 +64,39 @@ class BrowserNotificationsPlugin implements Plugin
                 'plugin' => $this,
             ]),
         );
-
-        if ($this->showProfileSection) {
-            $panel->renderHook(
-                PanelsRenderHook::PAGE_FOOTER_WIDGETS_BEFORE,
-                function () {
-                    if (! auth()->check()) {
-                        return '';
-                    }
-
-                    $uri = request()->path();
-                    if (! str_ends_with($uri, '/profile')) {
-                        return '';
-                    }
-
-                    return view('filament-browser-notifications::profile-section')->render();
-                },
-            );
-        }
     }
 
     public function boot(Panel $panel): void
     {
+        if (! $this->showProfileSection) {
+            return;
+        }
+
+        // Resolved in boot() so the panel is fully configured regardless of the
+        // order plugins() and profile() are chained. Null means no profile page
+        // is enabled, so there is nothing to attach the section to.
+        $profilePage = $panel->getProfilePage();
+
+        if (! $profilePage) {
+            return;
+        }
+
+        // Registered via FilamentView (not $panel->renderHook()) because the panel
+        // flushes its own render hooks before plugins boot, so a $panel->renderHook()
+        // call here would be silently dropped.
         //
+        // Standard profile pages render PAGE_END; simple ones (profile(isSimple: true))
+        // render SIMPLE_PAGE_END instead. A page is only ever one of the two, so the
+        // section is rendered exactly once. Scoping keeps it on the profile page only.
+        foreach ([PanelsRenderHook::PAGE_END, PanelsRenderHook::SIMPLE_PAGE_END] as $hook) {
+            FilamentView::registerRenderHook(
+                $hook,
+                fn () => auth()->check()
+                    ? view('filament-browser-notifications::profile-section')->render()
+                    : '',
+                scopes: $profilePage,
+            );
+        }
     }
 
     public static function make(): static
