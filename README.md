@@ -38,6 +38,17 @@ No manual plugin registration needed — it auto-registers on all Filament panel
 No service worker publishing needed — it's served from a route automatically.
 No profile page changes needed — the subscription management section auto-injects.
 
+> **Note:** The trait step requires the process running `artisan` to have write access to your User model (e.g. `app/Models/User.php`). In setups where the model is read-only for PHP (common in some Docker images), the command skips that step and prints instructions to add the trait by hand — it won't fail the install. To do it manually, add the `HasPushSubscriptions` trait to your User model:
+>
+> ```php
+> use NotificationChannels\WebPush\HasPushSubscriptions;
+>
+> class User extends Authenticatable
+> {
+>     use HasPushSubscriptions, Notifiable;
+> }
+> ```
+
 ## How it works
 
 ```

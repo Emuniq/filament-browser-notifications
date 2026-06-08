@@ -96,7 +96,8 @@ class InstallCommand extends Command
         }
 
         if (! $userFile) {
-            $this->comment('User model not found at common paths — add HasPushSubscriptions trait manually.');
+            $this->comment('User model not found at common paths.');
+            $this->printManualTraitInstructions();
             return;
         }
 
@@ -114,15 +115,45 @@ class InstallCommand extends Command
         $patched = static::applyPushTrait($content);
 
         if ($patched === null) {
-            $this->comment('Could not find the Notifiable trait in the User model — add HasPushSubscriptions manually.');
+            $this->comment('Could not find the Notifiable trait in the User model.');
+            $this->printManualTraitInstructions();
             return;
         }
 
-        $this->components->task('Adding HasPushSubscriptions trait to User model', function () use ($userFile, $patched) {
-            File::put($userFile, $patched);
+        $written = false;
 
-            return true;
+        $this->components->task('Adding HasPushSubscriptions trait to User model', function () use ($userFile, $patched, &$written) {
+            // Degrade gracefully when the model is read-only (e.g. a Docker
+            // image where app/Models is not writable by the PHP process)
+            // instead of surfacing a raw filesystem exception.
+            if (! is_writable($userFile)) {
+                return false;
+            }
+
+            try {
+                $written = File::put($userFile, $patched) !== false;
+            } catch (\Throwable) {
+                $written = false;
+            }
+
+            return $written;
         });
+
+        if (! $written) {
+            $this->components->warn("Could not write to {$userFile} — it may be read-only.");
+            $this->printManualTraitInstructions();
+        }
+    }
+
+    /**
+     * Print copy-paste instructions for wiring the trait up by hand, used
+     * whenever the User model cannot be located or written automatically.
+     */
+    protected function printManualTraitInstructions(): void
+    {
+        $this->line('  Add the trait to your User model manually:');
+        $this->line('    • import: <fg=green>use NotificationChannels\\WebPush\\HasPushSubscriptions;</>');
+        $this->line('    • trait:  add <fg=green>HasPushSubscriptions</> to the model\'s <fg=green>use ...;</> traits, next to Notifiable.');
     }
 
     /**
