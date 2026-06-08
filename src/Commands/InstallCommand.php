@@ -5,7 +5,6 @@ namespace Emuniq\FilamentBrowserNotifications\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Str;
 
 class InstallCommand extends Command
 {
@@ -97,45 +96,113 @@ class InstallCommand extends Command
         }
 
         if (! $userFile) {
-            $this->comment('User model not found at common paths — add HasPushSubscriptions trait manually.');
+            $this->comment('User model not found at common paths.');
+            $this->printManualTraitInstructions();
             return;
         }
 
         $content = File::get($userFile);
 
-        if (Str::contains($content, 'HasPushSubscriptions')) {
+        // Only skip when the trait is actually applied in the class body — not
+        // when it is merely imported. A half-finished install can leave just
+        // the FQCN import behind; treating that as "already present" would lock
+        // the model into a broken state on every re-run.
+        if (static::usesPushTrait($content)) {
             $this->comment('HasPushSubscriptions already present in User model.');
             return;
         }
 
-        $this->components->task('Adding HasPushSubscriptions trait to User model', function () use ($userFile, $content) {
+        $patched = static::applyPushTrait($content);
+
+        if ($patched === null) {
+            $this->comment('Could not find the Notifiable trait in the User model.');
+            $this->printManualTraitInstructions();
+            return;
+        }
+
+        $written = false;
+
+        $this->components->task('Adding HasPushSubscriptions trait to User model', function () use ($userFile, $patched, &$written) {
+            // Degrade gracefully when the model is read-only (e.g. a Docker
+            // image where app/Models is not writable by the PHP process)
+            // instead of surfacing a raw filesystem exception.
+            if (! is_writable($userFile)) {
+                return false;
+            }
+
+            try {
+                $written = File::put($userFile, $patched) !== false;
+            } catch (\Throwable) {
+                $written = false;
+            }
+
+            return $written;
+        });
+
+        if (! $written) {
+            $this->components->warn("Could not write to {$userFile} — it may be read-only.");
+            $this->printManualTraitInstructions();
+        }
+    }
+
+    /**
+     * Print copy-paste instructions for wiring the trait up by hand, used
+     * whenever the User model cannot be located or written automatically.
+     */
+    protected function printManualTraitInstructions(): void
+    {
+        $this->line('  Add the trait to your User model manually:');
+        $this->line('    • import: <fg=green>use NotificationChannels\\WebPush\\HasPushSubscriptions;</>');
+        $this->line('    • trait:  add <fg=green>HasPushSubscriptions</> to the model\'s <fg=green>use ...;</> traits, next to Notifiable.');
+    }
+
+    /**
+     * Whether the User model source already *uses* the HasPushSubscriptions
+     * trait inside the class body. A bare, short-name reference in a `use ...;`
+     * trait statement counts; the fully-qualified import on its own does not.
+     */
+    public static function usesPushTrait(string $content): bool
+    {
+        return (bool) preg_match(
+            '/(?:\n|^)[ \t]*use\s+(?:[A-Za-z0-9_]+\s*,\s*)*HasPushSubscriptions\s*[,;]/',
+            $content,
+        );
+    }
+
+    /**
+     * Add the HasPushSubscriptions import and apply the trait next to the
+     * Notifiable trait usage in the class body, regardless of its position in
+     * the trait list (`use Notifiable;`, `use Notifiable, HasRoles;`,
+     * `use HasFactory, Notifiable;`, ...). Returns the patched source, or null
+     * when no Notifiable trait usage can be found.
+     */
+    public static function applyPushTrait(string $content): ?string
+    {
+        // The preceding names are matched as bare short names (no backslash),
+        // so the fully-qualified `use Illuminate\Notifications\Notifiable;`
+        // import is never mistaken for the in-class trait declaration.
+        $patched = preg_replace(
+            '/((?:\n|^)[ \t]*use\s+(?:[A-Za-z0-9_]+\s*,\s*)*)Notifiable(\s*[,;])/',
+            '${1}HasPushSubscriptions, Notifiable${2}',
+            $content,
+            1,
+            $count,
+        );
+
+        if ($count === 0) {
+            return null;
+        }
+
+        // Add the FQCN import once, before the first top-level use statement.
+        if (! str_contains($patched, 'use NotificationChannels\\WebPush\\HasPushSubscriptions;')) {
             $useStatement = "use NotificationChannels\\WebPush\\HasPushSubscriptions;\n";
 
-            if (preg_match('/^(use\s+[^;]+;\s*\n)/m', $content, $match, PREG_OFFSET_CAPTURE)) {
-                $insertPos = $match[0][1];
-                $content = substr_replace($content, $useStatement, $insertPos, 0);
+            if (preg_match('/^use\s+[^;]+;\s*\n/m', $patched, $match, PREG_OFFSET_CAPTURE)) {
+                $patched = substr_replace($patched, $useStatement, $match[0][1], 0);
             }
+        }
 
-            if (preg_match('/use\s+HasFactory\s*,\s*/', $content)) {
-                $content = preg_replace(
-                    '/use\s+HasFactory\s*,/',
-                    'use HasFactory, HasPushSubscriptions,',
-                    $content,
-                    1,
-                );
-            } elseif (preg_match('/use\s+Notifiable\s*[;,]/', $content)) {
-                $content = preg_replace(
-                    '/use\s+Notifiable\s*;/',
-                    'use HasPushSubscriptions, Notifiable;',
-                    $content,
-                    1,
-                );
-            }
-
-            File::put($userFile, $content);
-
-            return true;
-        });
+        return $patched;
     }
 
     protected function setEnvValue(string $envPath, string $key, string $value): void
