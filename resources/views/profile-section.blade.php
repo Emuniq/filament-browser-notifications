@@ -1,4 +1,4 @@
-<div x-data="bnProfileSection">
+<div x-data="bnProfileSection" style="margin-top: 1.5rem;">
 <x-filament::section icon="heroicon-o-bell">
     <x-slot name="heading">
         {{ __('filament-browser-notifications::profile.title') }}
