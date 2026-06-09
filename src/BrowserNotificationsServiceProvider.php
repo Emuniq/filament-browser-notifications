@@ -5,6 +5,7 @@ namespace Emuniq\FilamentBrowserNotifications;
 use Emuniq\FilamentBrowserNotifications\Commands\InstallCommand;
 use Emuniq\FilamentBrowserNotifications\Commands\TestCommand;
 use Emuniq\FilamentBrowserNotifications\Listeners\SendWebPushOnDatabaseNotification;
+use Emuniq\FilamentBrowserNotifications\Support\Manifest;
 use Filament\Panel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -94,40 +95,7 @@ class BrowserNotificationsServiceProvider extends ServiceProvider
             })->withoutMiddleware(['web', 'auth'])->name('webpush.sw');
 
             Route::get('/manifest.json', function () {
-                $name = config('app.name', 'App');
-                $manifest = [
-                    'name' => $name,
-                    'short_name' => $name,
-                    'start_url' => '/admin',
-                    'scope' => '/',
-                    'display' => 'standalone',
-                    'background_color' => '#ffffff',
-                    'theme_color' => '#d97706',
-                    'icons' => [],
-                ];
-
-                try {
-                    $favicon = filament()->getDefaultPanel()->getFavicon();
-                    if ($favicon) {
-                        $ext = strtolower(pathinfo(parse_url($favicon, PHP_URL_PATH), PATHINFO_EXTENSION));
-                        $mime = match ($ext) {
-                            'png' => 'image/png',
-                            'jpg', 'jpeg' => 'image/jpeg',
-                            'svg' => 'image/svg+xml',
-                            'webp' => 'image/webp',
-                            'ico' => 'image/x-icon',
-                            default => 'image/png',
-                        };
-                        $manifest['icons'] = [
-                            ['src' => $favicon, 'sizes' => '192x192', 'type' => $mime, 'purpose' => 'any'],
-                            ['src' => $favicon, 'sizes' => '512x512', 'type' => $mime, 'purpose' => 'any'],
-                        ];
-                    }
-                } catch (\Throwable) {
-                    //
-                }
-
-                return response()->json($manifest, 200, ['Content-Type' => 'application/manifest+json']);
+                return response()->json(Manifest::build(), 200, ['Content-Type' => 'application/manifest+json']);
             })->withoutMiddleware(['web', 'auth'])->name('webpush.manifest');
         });
     }
