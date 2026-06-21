@@ -51,4 +51,23 @@ return [
     */
     'throttle_seconds' => 5,
 
+    /*
+    |--------------------------------------------------------------------------
+    | PWA manifest
+    |--------------------------------------------------------------------------
+    |
+    | Overrides for the generated /manifest.json. When left null, both values
+    | are derived from the active Filament panel:
+    |
+    |   - start_url   -> the default panel's path (e.g. "/backoffice")
+    |   - theme_color -> the panel's primary color, converted to a hex string
+    |
+    | Set them explicitly to take full control of the installed PWA.
+    |
+    */
+    'manifest' => [
+        'start_url' => null,
+        'theme_color' => null,
+    ],
+
 ];

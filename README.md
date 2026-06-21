@@ -113,6 +113,15 @@ Push notifications on iOS require the app to be added to the Home Screen as a PW
 - Detects iOS Safari without PWA and shows "Add to Home Screen" instructions in the profile section
 - Once added to Home Screen, the standard VAPID push flow works normally
 
+The manifest's `start_url` and `theme_color` are derived from your active Filament panel — the panel **path** and **primary color** respectively — so the installed PWA opens the right route with on-brand chrome. Override either one in `config/browser-notifications.php` if needed:
+
+```php
+'manifest' => [
+    'start_url' => '/backoffice', // null = derive from the panel path
+    'theme_color' => '#10B981',   // null = derive from the panel primary color
+],
+```
+
 ## Testing your setup
 
 After installation, verify push notifications work:
