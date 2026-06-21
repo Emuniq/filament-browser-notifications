@@ -4,6 +4,7 @@ namespace Emuniq\FilamentBrowserNotifications\Listeners;
 
 use Emuniq\FilamentBrowserNotifications\Jobs\SendDatabaseNotificationWebPush;
 use Emuniq\FilamentBrowserNotifications\Jobs\SendGroupedWebPush;
+use Emuniq\FilamentBrowserNotifications\Support\ActionResolver;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
@@ -29,7 +30,7 @@ class SendWebPushOnDatabaseNotification
 
         $data = $notification->data ?? [];
 
-        if (! empty($data['silent'])) {
+        if (ActionResolver::isSilent($data)) {
             return;
         }
 
@@ -48,44 +49,40 @@ class SendWebPushOnDatabaseNotification
         $cacheKey = "bn_throttle:{$userId}";
 
         if (Cache::add($cacheKey, 1, $throttle)) {
-            $title = $data['title'] ?? $data['subject'] ?? config('app.name', 'Notification');
-            $body = $data['body'] ?? $data['message'] ?? '';
-            $actionUrl = $this->extractActionUrl($data);
+            [$title, $body, $action] = $this->extract($data);
 
             SendDatabaseNotificationWebPush::dispatch(
                 $notifiable,
                 $title,
                 $body,
-                $actionUrl,
+                $action['url'] ?? null,
+                $action['openInNewTab'] ?? false,
             )->delay(now()->addSeconds($throttle));
         }
     }
 
     protected function dispatchImmediate(mixed $notifiable, array $data): void
     {
-        $title = $data['title'] ?? $data['subject'] ?? config('app.name', 'Notification');
-        $body = $data['body'] ?? $data['message'] ?? '';
-        $actionUrl = $this->extractActionUrl($data);
+        [$title, $body, $action] = $this->extract($data);
 
         SendDatabaseNotificationWebPush::dispatch(
             $notifiable,
             $title,
             $body,
-            $actionUrl,
+            $action['url'] ?? null,
+            $action['openInNewTab'] ?? false,
         );
     }
 
-    protected function extractActionUrl(array $data): ?string
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array{0: string, 1: string, 2: array{url: string, openInNewTab: bool}|null}
+     */
+    protected function extract(array $data): array
     {
-        $actions = $data['actions'] ?? [];
+        $title = $data['title'] ?? $data['subject'] ?? config('app.name', 'Notification');
+        $body = $data['body'] ?? $data['message'] ?? '';
 
-        foreach ($actions as $action) {
-            $url = $action['url'] ?? null;
-            if ($url) {
-                return parse_url($url, PHP_URL_PATH) ?: $url;
-            }
-        }
-
-        return $data['action_url'] ?? $data['url'] ?? null;
+        return [$title, $body, ActionResolver::resolve($data)];
     }
 }

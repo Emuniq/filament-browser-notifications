@@ -2,6 +2,7 @@
 
 namespace Emuniq\FilamentBrowserNotifications\Notifications;
 
+use Emuniq\FilamentBrowserNotifications\Support\Panels;
 use Illuminate\Notifications\Notification;
 use NotificationChannels\WebPush\WebPushChannel;
 use NotificationChannels\WebPush\WebPushMessage;
@@ -12,6 +13,7 @@ class GenericWebPushNotification extends Notification
         protected string $title,
         protected string $body,
         protected ?string $actionUrl = null,
+        protected bool $openInNewTab = false,
     ) {}
 
     public function via(object $notifiable): array
@@ -29,7 +31,10 @@ class GenericWebPushNotification extends Notification
             ->icon($icon)
             ->badge($icon);
 
-        $message->data(['action_url' => $this->actionUrl ?? '/admin']);
+        $message->data([
+            'action_url' => $this->actionUrl ?? Panels::defaultPath(),
+            'open_in_new_tab' => $this->openInNewTab,
+        ]);
 
         return $message;
     }

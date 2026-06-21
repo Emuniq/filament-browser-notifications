@@ -31,9 +31,14 @@ self.addEventListener('push', function (event) {
 self.addEventListener('notificationclick', function (event) {
     event.notification.close();
 
-    var actionUrl = (event.notification.data && event.notification.data.action_url)
-        ? event.notification.data.action_url
-        : '/admin';
+    var data = event.notification.data || {};
+    var actionUrl = data.action_url || '/';
+    var openInNewTab = !!data.open_in_new_tab;
+
+    if (openInNewTab) {
+        event.waitUntil(clients.openWindow(actionUrl));
+        return;
+    }
 
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (clientList) {

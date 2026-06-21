@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Clicking a browser notification now opens the notification's action URL instead of always landing on the dashboard. Action URLs nested inside an `ActionGroup` are now resolved (previously only top-level actions were read, so grouped actions fell back to `/admin`).
+- The grouped/throttled push and the no-action fallback no longer hardcode `/admin`; they open the default panel's path.
+- `silent` notifications now work with Filament v5: the flag is read from `->viewData(['silent' => true])` (Filament's `Notification` has no `->data()` method). README updated accordingly.
+
+### Added
+
+- Browser notifications now respect `->openUrlInNewTab()` on actions — the service worker opens a new window/tab instead of navigating the existing one.
+
 ## [1.1.1] - 2026-06-08
 
 ### Fixed
