@@ -165,13 +165,13 @@ return [
 
 ## Suppressing push for specific notifications
 
-Add `'silent' => true` to the notification data to skip the push:
+Add `'silent' => true` via the notification's view data to skip the push (Filament's `Notification` has no `->data()` method — use `->viewData()`):
 
 ```php
 Notification::make()
     ->title('Low priority update')
     ->body('...')
-    ->data(['silent' => true])  // no browser push for this one
+    ->viewData(['silent' => true])  // no browser push for this one
     ->sendToDatabase($users);
 ```
 

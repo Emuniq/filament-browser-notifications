@@ -3,6 +3,7 @@
 namespace Emuniq\FilamentBrowserNotifications\Jobs;
 
 use Emuniq\FilamentBrowserNotifications\Notifications\GenericWebPushNotification;
+use Emuniq\FilamentBrowserNotifications\Support\Panels;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\Eloquent\Model;
@@ -24,6 +25,7 @@ class SendDatabaseNotificationWebPush implements ShouldQueue
         public string $title,
         public string $body,
         public ?string $actionUrl = null,
+        public bool $openInNewTab = false,
     ) {
         $this->onConnection(config('browser-notifications.queue_connection'));
         $this->onQueue(config('browser-notifications.queue_name'));
@@ -36,7 +38,7 @@ class SendDatabaseNotificationWebPush implements ShouldQueue
         if ($throttle > 0) {
             $this->sendWithGrouping($throttle);
         } else {
-            $this->sendSingle($this->title, $this->body, $this->actionUrl);
+            $this->sendSingle($this->title, $this->body, $this->actionUrl, $this->openInNewTab);
         }
     }
 
@@ -50,22 +52,24 @@ class SendDatabaseNotificationWebPush implements ShouldQueue
             ->count();
 
         if ($recentCount <= 1) {
-            $this->sendSingle($this->title, $this->body, $this->actionUrl);
+            $this->sendSingle($this->title, $this->body, $this->actionUrl, $this->openInNewTab);
             return;
         }
 
         $title = trans_choice('filament-browser-notifications::prompt.grouped_title', $recentCount, ['count' => $recentCount]);
         $body = trans_choice('filament-browser-notifications::prompt.grouped_body', $recentCount, ['count' => $recentCount]);
 
-        $this->sendSingle($title, $body, '/admin');
+        // Grouped pushes have no single action; open the panel where the
+        // notifications live rather than a hardcoded "/admin".
+        $this->sendSingle($title, $body, Panels::defaultPath(), false);
     }
 
-    protected function sendSingle(string $title, string $body, ?string $actionUrl): void
+    protected function sendSingle(string $title, string $body, ?string $actionUrl, bool $openInNewTab = false): void
     {
         try {
             Notification::send(
                 $this->notifiable,
-                new GenericWebPushNotification($title, $body, $actionUrl),
+                new GenericWebPushNotification($title, $body, $actionUrl, $openInNewTab),
             );
         } catch (\Throwable $e) {
             Log::warning('WebPush delivery failed', [
